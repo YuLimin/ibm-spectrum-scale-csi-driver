@@ -17,10 +17,7 @@
 package scale
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"os"
 	"path"
 	"strings"
 
@@ -57,55 +54,6 @@ type ScaleDriver struct {
 	vcap  []*csi.VolumeCapability_AccessMode
 	cscap []*csi.ControllerServiceCapability
 	nscap []*csi.NodeServiceCapability
-}
-
-var scaleVolumes map[string]*scaleVolume
-
-// Init checks for the persistent volume file and loads all found volumes
-// into a memory structure
-func init() {
-	glog.V(3).Infof("gpfs init")
-	scaleVolumes = map[string]*scaleVolume{}
-	if _, err := os.Stat(path.Join(PluginFolder, "controller")); os.IsNotExist(err) {
-		glog.Infof("scale: folder %s not found. Creating... \n", path.Join(PluginFolder, "controller"))
-		if err := os.Mkdir(path.Join(PluginFolder, "controller"), 0755); err != nil {
-			glog.Fatalf("Failed to create a controller's volumes folder with error: %v\n", err)
-		}
-	} else {
-		// Since "controller" folder exists, it means the plugin has already been running, it means
-		// there might be some volumes left, they must be re-inserted into scaleVolumes map
-		loadExVolumes()
-	}
-}
-
-// loadExVolumes check for any *.json files in the  PluginFolder/controller folder
-// and loads then into scaleVolumes map
-func loadExVolumes() {
-	glog.V(3).Infof("gpfs loadExVolumes")
-	scaleVol := scaleVolume{}
-	files, err := ioutil.ReadDir(path.Join(PluginFolder, "controller"))
-	if err != nil {
-		glog.Infof("scale: failed to read controller's volumes folder: %s error:%v", path.Join(PluginFolder, "controller"), err)
-		return
-	}
-	for _, f := range files {
-		if !strings.HasSuffix(f.Name(), ".json") {
-			continue
-		}
-		fp, err := os.Open(path.Join(PluginFolder, "controller", f.Name()))
-		if err != nil {
-			glog.Infof("scale: open file: %s err %v", f.Name(), err)
-			continue
-		}
-		decoder := json.NewDecoder(fp)
-		if err = decoder.Decode(&scaleVol); err != nil {
-			glog.Infof("scale: decode file: %s err: %v", f.Name(), err)
-			fp.Close()
-			continue
-		}
-		/*		scaleVolumes[scaleVol.VolID] = &scaleVol */
-	}
-	glog.Infof("scale: Loaded %d volumes from %s", len(scaleVolumes), path.Join(PluginFolder, "controller"))
 }
 
 func GetScaleDriver() *ScaleDriver {
